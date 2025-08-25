@@ -1,19 +1,18 @@
 import React from 'react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import { BacktestResult } from '../../hooks/useBacktestData'
+import { NormalizedTrade } from '../../types/database'
 
 interface PnLDistributionProps {
-  data: BacktestResult[]
+  data: NormalizedTrade[]
 }
 
 export function PnLDistribution({ data }: PnLDistributionProps) {
   // Create PnL distribution buckets
   const pnlValues = data
     .filter(item => 
-      (item.pnl !== null && item.pnl !== undefined) ||
-      (item['P&L ($)'] !== null && item['P&L ($)'] !== undefined)
+      item.pnl !== null && item.pnl !== undefined
     )
-    .map(item => item.pnl || item['P&L ($)']!)
+    .map(item => item.pnl!)
 
   if (pnlValues.length === 0) {
     return (

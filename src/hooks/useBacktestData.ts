@@ -1,141 +1,59 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { DataProcessor } from '../utils/dataProcessor'
+import { MetricsCalculator } from '../utils/metricsCalculator'
+import { TradeSignal, BacktestResult, NormalizedTrade, DataQualityMetrics, DashboardMetrics } from '../types/database'
 
-export interface BacktestResult {
-  SignalID?: string
-  Symbol?: string
-  Action?: string
-  Entry?: number
-  StopLoss?: number
-  TakeProfit?: number
-  Leverage?: number
-  Outcome?: string
-  ClosedAt?: string
-  'P&L ($)'?: number
-  'Risk/Reward'?: number
-  'Ending Equity'?: number
-  // Normalized fields for easier access
-  id?: string
-  symbol?: string
-  side?: string
-  entry_time?: string
-  exit_time?: string
-  entry_price?: number
-  exit_price?: number
-  pnl?: number
-  equity_after_trade?: number
-  tp_multiplier?: number
-  exit_reason?: string
-  created_at?: string
-}
-
-export interface TradeSignal {
-  SignalID: string
-  Timestamp: string
-  Symbol: string
-  Status: string
-  Action: string
-  Entry: number
-  StopLoss: number
-  TakeProfit: number
-  AI_Rationale?: string
-  ClosingPrice?: number
-  ActivationTimestamp?: string
-  Notes?: string
-  Leverage?: number
-  Outcome?: string
-  ClosedAt?: string
-  ConfidenceScore?: number
-}
-
-export interface Configuration {
-  symbol: string
-  is_active: boolean
-  risk_per_trade_percent: number
-  atr_min: number
-  atr_max: number
-  notes: string | null
-  status: string
-  cooldown_until: string | null
-}
+export { TradeSignal, BacktestResult, NormalizedTrade, DataQualityMetrics, DashboardMetrics } from '../types/database'
 
 export function useBacktestData() {
-  const [backtestResults, setBacktestResults] = useState<BacktestResult[]>([])
+  const [normalizedTrades, setNormalizedTrades] = useState<NormalizedTrade[]>([])
+  const [dashboardMetrics, setDashboardMetrics] = useState<DashboardMetrics | null>(null)
+  const [dataQuality, setDataQuality] = useState<DataQualityMetrics | null>(null)
   const [tradeSignals, setTradeSignals] = useState<TradeSignal[]>([])
-  const [configurations, setConfigurations] = useState<Configuration[]>([])
+  const [backtestResults, setBacktestResults] = useState<BacktestResult[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  
+  const dataProcessor = DataProcessor.getInstance()
 
-  const fetchBacktestResults = async () => {
+  const fetchAndProcessData = async () => {
     try {
-      const { data, error } = await supabase
+      // Fetch backtest results
+      const { data: backtestData, error: backtestError } = await supabase
         .from('backtest_results')
         .select('*')
         .order('ClosedAt', { ascending: false, nullsLast: true })
         .limit(1000)
 
-      if (error) throw error
-      
-      // Normalize the data for easier access
-      const normalizedData = (data || []).map(item => ({
-        ...item,
-        id: item.SignalID,
-        symbol: item.Symbol,
-        side: item.Action?.toLowerCase(),
-        entry_time: item.ActivationTimestamp || item.Timestamp,
-        exit_time: item.ClosedAt,
-        entry_price: item.Entry,
-        exit_price: item.ClosingPrice,
-        pnl: item['P&L ($)'],
-        equity_after_trade: item['Ending Equity'],
-        tp_multiplier: item['Risk/Reward'],
-        exit_reason: item.Outcome?.toLowerCase(),
-        created_at: item.ClosedAt
-      }))
-      
-      setBacktestResults(normalizedData)
-    } catch (err) {
-      console.error('Error fetching backtest results:', err)
-      setError('Failed to fetch backtest results')
-    }
-  }
+      if (backtestError) throw backtestError
+      setBacktestResults(backtestData || [])
 
- const fetchTradeSignals = async () => {
-   try {
-     const { data, error } = await supabase
+      // Fetch trade signals
+      const { data: signalsData, error: signalsError } = await supabase
        .from('ai_trade_log')
        .select('*')
        .order('Timestamp', { ascending: false })
        .limit(500)
 
-     if (error) throw error
-     setTradeSignals(data || [])
-   } catch (err) {
-     console.error('Error fetching trade signals:', err)
-     setError('Failed to fetch trade signals')
-   }
- }
+      if (signalsError) throw signalsError
+      setTradeSignals(signalsData || [])
 
-  const fetchConfigurations = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('configurations')
-        .select('*')
-        .order('symbol', { ascending: true })
+      // Process and normalize data
+      const normalized = dataProcessor.normalizeTradeData(signalsData || [], backtestData || [])
+      setNormalizedTrades(normalized)
 
-      if (error) throw error
-      // Remove duplicates based on symbol
-      const uniqueConfigs = (data || []).reduce((acc, config) => {
-        const existing = acc.find(c => c.symbol === config.symbol)
-        if (!existing) {
-          acc.push(config)
-        }
-        return acc
-      }, [] as Configuration[])
-      setConfigurations(uniqueConfigs)
+      // Calculate metrics
+      const metrics = MetricsCalculator.calculateDashboardMetrics(normalized)
+      setDashboardMetrics(metrics)
+
+      // Calculate data quality
+      const quality = dataProcessor.calculateDataQuality(normalized)
+      setDataQuality(quality)
+
     } catch (err) {
-      console.error('Error fetching configurations:', err)
-      setError('Failed to fetch configurations')
+      console.error('Error processing data:', err)
+      setError('Failed to process data')
     }
   }
 
@@ -144,11 +62,7 @@ export function useBacktestData() {
     setError(null)
     
     try {
-      await Promise.all([
-        fetchBacktestResults(),
-        fetchTradeSignals(),
-        fetchConfigurations()
-      ])
+      await fetchAndProcessData()
     } catch (err) {
       console.error('Error refreshing data:', err)
       setError('Failed to refresh data')
@@ -183,26 +97,19 @@ export function useBacktestData() {
     setLoading(false)
   }
 
-  const refreshConfigurations = async () => {
-    try {
-      await fetchConfigurations()
-    } catch (err) {
-      console.error('Error refreshing configurations:', err)
-      setError('Failed to refresh configurations')
-    }
-  }
   useEffect(() => {
     refreshData()
   }, [])
 
   return {
-    backtestResults,
+    normalizedTrades,
+    dashboardMetrics,
+    dataQuality,
     tradeSignals,
-    configurations,
+    backtestResults,
     loading,
     error,
     refreshData,
-    refreshConfigurations,
     runBacktest
   }
 }

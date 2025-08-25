@@ -1,20 +1,18 @@
 import React from 'react';
 import { Header } from './components/dashboard/Header';
-import { MetricsGrid } from './components/dashboard/MetricsGrid';
+import { ExecutiveSummary } from './components/dashboard/ExecutiveSummary';
 import { PerformanceChart } from './components/charts/PerformanceChart';
 import { PnLDistribution } from './components/charts/PnLDistribution';
-import { TradeTable } from './components/dashboard/TradeTable';
-import { ConfigurationPanel } from './components/dashboard/ConfigurationPanel';
-import { BacktestSummary } from './components/dashboard/BacktestSummary';
+import { EnhancedTradeTable } from './components/dashboard/EnhancedTradeTable';
 import { Card, CardHeader, CardTitle, CardContent } from './components/ui/Card';
 import { useBacktestData } from './hooks/useBacktestData';
-import { AlertCircle, TrendingUp } from 'lucide-react';
+import { AlertCircle, TrendingUp, BarChart3, Database } from 'lucide-react';
 
 function App() {
   const { 
-    backtestResults, 
-    tradeSignals, 
-    configurations, 
+    normalizedTrades,
+    dashboardMetrics,
+    dataQuality,
     loading, 
     error, 
     refreshData,
@@ -42,62 +40,72 @@ function App() {
       <Header onRefresh={refreshData} onRunBacktest={runBacktest} loading={loading} />
       
       <main className="max-w-7xl mx-auto px-6 py-8 space-y-8">
-        {/* Metrics Overview */}
+        {/* Executive Summary */}
         <section>
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6 flex items-center">
-            <TrendingUp className="h-5 w-5 mr-2 text-blue-600" />
-            Performance Metrics
-          </h2>
-          <MetricsGrid data={backtestResults} />
+          <ExecutiveSummary 
+            metrics={dashboardMetrics || {
+              totalTrades: 0, winRate: 0, totalPnL: 0, finalEquity: 10000,
+              maxDrawdown: 0, profitFactor: 0, sharpeRatio: 0, avgWin: 0,
+              avgLoss: 0, largestWin: 0, largestLoss: 0, avgTradeDuration: 0, totalReturn: 0
+            }} 
+            dataQuality={dataQuality} 
+          />
         </section>
 
-        {/* Backtest Summary */}
-        {backtestResults.length > 0 && (
+        {/* Analytics Charts */}
+        {normalizedTrades.length > 0 && (
           <section>
-            <BacktestSummary
-              totalTrades={backtestResults.length}
-              winRate={backtestResults.filter(t => (t.pnl || t['P&L ($)'] || 0) > 0).length / backtestResults.length * 100}
-              totalPnL={backtestResults.reduce((sum, t) => sum + (t.pnl || t['P&L ($)'] || 0), 0)}
-              finalEquity={backtestResults[backtestResults.length - 1]?.equity_after_trade || backtestResults[backtestResults.length - 1]?.['Ending Equity'] || 10000}
-              maxDrawdown={15.2} // This would be calculated properly in a real implementation
-              profitFactor={2.1} // This would be calculated properly in a real implementation
-            />
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6 flex items-center">
+              <BarChart3 className="h-5 w-5 mr-2 text-blue-600" />
+              Performance Analytics
+            </h2>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Portfolio Equity Curve</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <PerformanceChart data={normalizedTrades} />
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardHeader>
+                  <CardTitle>P&L Distribution</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <PnLDistribution data={normalizedTrades} />
+                </CardContent>
+              </Card>
+            </div>
           </section>
         )}
 
-        {/* Charts Section */}
-        <section className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <Card>
-            <CardHeader>
-              <CardTitle>Portfolio Equity Curve</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <PerformanceChart data={backtestResults} />
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader>
-              <CardTitle>P&L Distribution</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <PnLDistribution data={backtestResults} />
-            </CardContent>
-          </Card>
-        </section>
-
         {/* Trade History */}
-        <section>
-          <TradeTable data={backtestResults} />
-        </section>
+        {normalizedTrades.length > 0 && (
+          <section>
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6 flex items-center">
+              <Database className="h-5 w-5 mr-2 text-blue-600" />
+              Detailed Trade Analysis
+            </h2>
+            <EnhancedTradeTable data={normalizedTrades} />
+          </section>
+        )}
 
-        {/* Configuration Panel */}
-        <section>
-          <ConfigurationPanel 
-            configurations={configurations} 
-            onRefresh={refreshData}
-          />
-        </section>
+        {/* No Data State */}
+        {!loading && normalizedTrades.length === 0 && (
+          <section className="text-center py-12">
+            <div className="max-w-md mx-auto">
+              <BarChart3 className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                No Trading Data Available
+              </h3>
+              <p className="text-gray-600 dark:text-gray-400 mb-6">
+                Run a backtest to generate trading data and performance analytics.
+              </p>
+            </div>
+          </section>
+        )}
       </main>
     </div>
   );
