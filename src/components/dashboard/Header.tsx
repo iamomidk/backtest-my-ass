@@ -6,10 +6,11 @@ import { useDarkMode } from '../../hooks/useDarkMode'
 
 interface HeaderProps {
   onRefresh: () => void
+  onRunBacktest?: () => void
   loading: boolean
 }
 
-export function Header({ onRefresh, loading }: HeaderProps) {
+export function Header({ onRefresh, onRunBacktest, loading }: HeaderProps) {
   const { isDark, toggleDarkMode } = useDarkMode()
 
   return (
@@ -35,6 +36,17 @@ export function Header({ onRefresh, loading }: HeaderProps) {
             <span>Connected to Supabase</span>
           </div>
           <DarkModeToggle isDark={isDark} onToggle={toggleDarkMode} />
+          {onRunBacktest && (
+            <Button
+              variant="primary"
+              onClick={onRunBacktest}
+              loading={loading}
+              className="flex items-center space-x-2"
+            >
+              <BarChart3 className="h-4 w-4" />
+              <span>Run Backtest</span>
+            </Button>
+          )}
           <Button
             variant="outline"
             onClick={onRefresh}

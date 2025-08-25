@@ -9,27 +9,40 @@ interface MetricsGridProps {
 
 export function MetricsGrid({ data }: MetricsGridProps) {
   // Calculate metrics
-  const validTrades = data.filter(item => item.pnl !== null && item.closedAt !== null)
+  const validTrades = data.filter(item => 
+    (item.pnl !== null && item.pnl !== undefined) || 
+    (item['P&L ($)'] !== null && item['P&L ($)'] !== undefined)
+  )
   const totalTrades = validTrades.length
-  const totalPnL = validTrades.reduce((sum, item) => sum + (item.pnl || 0), 0)
-  const winningTrades = validTrades.filter(item => (item.pnl || 0) > 0)
-  const losingTrades = validTrades.filter(item => (item.pnl || 0) < 0)
+  const totalPnL = validTrades.reduce((sum, item) => 
+    sum + (item.pnl || item['P&L ($)'] || 0), 0)
+  const winningTrades = validTrades.filter(item => 
+    (item.pnl || item['P&L ($)'] || 0) > 0)
+  const losingTrades = validTrades.filter(item => 
+    (item.pnl || item['P&L ($)'] || 0) < 0)
   
   const winRate = totalTrades > 0 ? (winningTrades.length / totalTrades) * 100 : 0
   const avgWin = winningTrades.length > 0 ? 
-    winningTrades.reduce((sum, item) => sum + (item.pnl || 0), 0) / winningTrades.length : 0
+    winningTrades.reduce((sum, item) => sum + (item.pnl || item['P&L ($)'] || 0), 0) / winningTrades.length : 0
   const avgLoss = losingTrades.length > 0 ? 
-    Math.abs(losingTrades.reduce((sum, item) => sum + (item.pnl || 0), 0) / losingTrades.length) : 0
+    Math.abs(losingTrades.reduce((sum, item) => sum + (item.pnl || item['P&L ($)'] || 0), 0) / losingTrades.length) : 0
   
-  const totalWins = winningTrades.reduce((sum, item) => sum + (item.pnl || 0), 0)
-  const totalLosses = Math.abs(losingTrades.reduce((sum, item) => sum + (item.pnl || 0), 0))
+  const totalWins = winningTrades.reduce((sum, item) => sum + (item.pnl || item['P&L ($)'] || 0), 0)
+  const totalLosses = Math.abs(losingTrades.reduce((sum, item) => sum + (item.pnl || item['P&L ($)'] || 0), 0))
   const profitFactor = totalLosses > 0 ? totalWins / totalLosses : (totalWins > 0 ? 999 : 0)
   
   // Calculate max drawdown from equity curve
   const equityValues = data
-    .filter(item => item.equity_after_trade !== null && item.exit_time !== null)
-    .sort((a, b) => new Date(a.exit_time!).getTime() - new Date(b.exit_time!).getTime())
-    .map(item => item.equity_after_trade!)
+    .filter(item => 
+      (item.equity_after_trade !== null && item.equity_after_trade !== undefined) ||
+      (item['Ending Equity'] !== null && item['Ending Equity'] !== undefined)
+    )
+    .sort((a, b) => {
+      const dateA = new Date(a.exit_time || a.ClosedAt || 0).getTime()
+      const dateB = new Date(b.exit_time || b.ClosedAt || 0).getTime()
+      return dateA - dateB
+    })
+    .map(item => item.equity_after_trade || item['Ending Equity'] || 1000)
   
   let maxDrawdown = 0
   let peak = equityValues[0] || 1000

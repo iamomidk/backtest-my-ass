@@ -2,29 +2,50 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 
 export interface BacktestResult {
-  id: number
-  trade_id: number | null
-  symbol: string | null
-  side: string | null
-  entry_time: string | null
-  exit_time: string | null
-  entry_price: number | null
-  exit_price: number | null
-  pnl: number | null
-  equity_after_trade: number | null
-  tp_multiplier: number | null
-  exit_reason: string | null
-  created_at: string | null
+  SignalID?: string
+  Symbol?: string
+  Action?: string
+  Entry?: number
+  StopLoss?: number
+  TakeProfit?: number
+  Leverage?: number
+  Outcome?: string
+  ClosedAt?: string
+  'P&L ($)'?: number
+  'Risk/Reward'?: number
+  'Ending Equity'?: number
+  // Normalized fields for easier access
+  id?: string
+  symbol?: string
+  side?: string
+  entry_time?: string
+  exit_time?: string
+  entry_price?: number
+  exit_price?: number
+  pnl?: number
+  equity_after_trade?: number
+  tp_multiplier?: number
+  exit_reason?: string
+  created_at?: string
 }
 
 export interface TradeSignal {
-  id: number
-  timestamp: string
-  symbol: string
-  side: string
-  entry_price: number
-  stop_loss: number
-  take_profit: number
+  SignalID: string
+  Timestamp: string
+  Symbol: string
+  Status: string
+  Action: string
+  Entry: number
+  StopLoss: number
+  TakeProfit: number
+  AI_Rationale?: string
+  ClosingPrice?: number
+  ActivationTimestamp?: string
+  Notes?: string
+  Leverage?: number
+  Outcome?: string
+  ClosedAt?: string
+  ConfidenceScore?: number
 }
 
 export interface Configuration {
@@ -50,11 +71,29 @@ export function useBacktestData() {
       const { data, error } = await supabase
         .from('backtest_results')
         .select('*')
-        .order('ClosedAt', { ascending: false })
+        .order('ClosedAt', { ascending: false, nullsLast: true })
         .limit(1000)
 
       if (error) throw error
-      setBacktestResults(data || [])
+      
+      // Normalize the data for easier access
+      const normalizedData = (data || []).map(item => ({
+        ...item,
+        id: item.SignalID,
+        symbol: item.Symbol,
+        side: item.Action?.toLowerCase(),
+        entry_time: item.ActivationTimestamp || item.Timestamp,
+        exit_time: item.ClosedAt,
+        entry_price: item.Entry,
+        exit_price: item.ClosingPrice,
+        pnl: item['P&L ($)'],
+        equity_after_trade: item['Ending Equity'],
+        tp_multiplier: item['Risk/Reward'],
+        exit_reason: item.Outcome?.toLowerCase(),
+        created_at: item.ClosedAt
+      }))
+      
+      setBacktestResults(normalizedData)
     } catch (err) {
       console.error('Error fetching backtest results:', err)
       setError('Failed to fetch backtest results')
@@ -118,6 +157,32 @@ export function useBacktestData() {
     setLoading(false)
   }
 
+  const runBacktest = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+      const response = await fetch(`${supabaseUrl}/functions/v1/backtest`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+        }
+      })
+      
+      if (!response.ok) throw new Error('Backtest failed')
+      
+      const result = await response.json()
+      console.log('Backtest completed:', result)
+      
+      await refreshData()
+    } catch (err) {
+      console.error('Backtest error:', err)
+      setError('Failed to run backtest')
+    }
+    setLoading(false)
+  }
+
   const refreshConfigurations = async () => {
     try {
       await fetchConfigurations()
@@ -137,6 +202,7 @@ export function useBacktestData() {
     loading,
     error,
     refreshData,
-    refreshConfigurations
+    refreshConfigurations,
+    runBacktest
   }
 }

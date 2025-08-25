@@ -9,8 +9,11 @@ interface PnLDistributionProps {
 export function PnLDistribution({ data }: PnLDistributionProps) {
   // Create PnL distribution buckets
   const pnlValues = data
-    .filter(item => item.pnl !== null)
-    .map(item => item.pnl!)
+    .filter(item => 
+      (item.pnl !== null && item.pnl !== undefined) ||
+      (item['P&L ($)'] !== null && item['P&L ($)'] !== undefined)
+    )
+    .map(item => item.pnl || item['P&L ($)']!)
 
   if (pnlValues.length === 0) {
     return (

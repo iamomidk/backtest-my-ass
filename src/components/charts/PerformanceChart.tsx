@@ -10,12 +10,19 @@ interface PerformanceChartProps {
 export function PerformanceChart({ data }: PerformanceChartProps) {
   // Process data for equity curve
   const chartData = data
-    .filter(item => item.exit_time && item.equity_after_trade !== null)
-    .sort((a, b) => new Date(a.exit_time!).getTime() - new Date(b.exit_time!).getTime())
+    .filter(item => 
+      (item.exit_time || item.ClosedAt) && 
+      (item.equity_after_trade !== null || item['Ending Equity'] !== null)
+    )
+    .sort((a, b) => {
+      const dateA = new Date(a.exit_time || a.ClosedAt || 0).getTime()
+      const dateB = new Date(b.exit_time || b.ClosedAt || 0).getTime()
+      return dateA - dateB
+    })
     .map((item, index) => ({
-      date: item.exit_time!,
-      equity: item.equity_after_trade!,
-      pnl: item.pnl!,
+      date: item.exit_time || item.ClosedAt!,
+      equity: item.equity_after_trade || item['Ending Equity']!,
+      pnl: item.pnl || item['P&L ($)']!,
       trade: index + 1
     }))
 

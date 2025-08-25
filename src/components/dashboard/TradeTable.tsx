@@ -136,33 +136,49 @@ export function TradeTable({ data }: TradeTableProps) {
               {paginatedData.map((trade, index) => (
                 <tr key={index} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
                   <td className="py-3 px-4">
-                    {trade.exit_time ? format(new Date(trade.exit_time), 'MMM dd, HH:mm') : '-'}
+                    {trade.exit_time || trade.ClosedAt ? 
+                      format(new Date(trade.exit_time || trade.ClosedAt!), 'MMM dd, HH:mm') : '-'}
                   </td>
-                  <td className="py-3 px-4 font-medium text-gray-900 dark:text-white">{trade.symbol || '-'}</td>
+                  <td className="py-3 px-4 font-medium text-gray-900 dark:text-white">
+                    {trade.symbol || trade.Symbol || '-'}
+                  </td>
                   <td className="py-3 px-4">
-                    <Badge variant={trade.side === 'long' ? 'success' : 'error'} size="sm">
-                      {trade.side?.toUpperCase() || '-'}
+                    <Badge variant={
+                      (trade.side || trade.Action)?.toLowerCase() === 'long' || 
+                      (trade.side || trade.Action)?.toLowerCase() === 'buy' ? 'success' : 'error'
+                    } size="sm">
+                      {(trade.side || trade.Action)?.toUpperCase() || '-'}
                     </Badge>
                   </td>
-                  <td className="py-3 px-4">${trade.entry_price?.toFixed(4) || '-'}</td>
-                  <td className="py-3 px-4">${trade.exit_price?.toFixed(4) || '-'}</td>
+                  <td className="py-3 px-4">
+                    ${(trade.entry_price || trade.Entry)?.toFixed(4) || '-'}
+                  </td>
+                  <td className="py-3 px-4">
+                    ${(trade.exit_price || trade.ClosingPrice)?.toFixed(4) || '-'}
+                  </td>
                   <td className="py-3 px-4">
                     <span className={`font-medium ${
-                      (trade.pnl || 0) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                      (trade.pnl || trade['P&L ($)'] || 0) >= 0 ? 
+                        'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
                     }`}>
-                      ${trade.pnl?.toFixed(2) || '0.00'}
+                      ${(trade.pnl || trade['P&L ($)'])?.toFixed(2) || '0.00'}
                     </span>
                   </td>
-                  <td className="py-3 px-4">{trade.tp_multiplier?.toFixed(1) || '-'}x</td>
+                  <td className="py-3 px-4">
+                    {(trade.tp_multiplier || trade['Risk/Reward'])?.toFixed(1) || '-'}x
+                  </td>
                   <td className="py-3 px-4">
                     <Badge 
                       variant={
-                        trade.exit_reason === 'final_tp' || trade.exit_reason === 'partial_tp' ? 'success' : 
-                        trade.exit_reason === 'stop_loss' ? 'error' : 'default'
+                        (trade.exit_reason || trade.Outcome)?.toLowerCase().includes('profit') || 
+                        (trade.exit_reason || trade.Outcome)?.toLowerCase().includes('win') ? 'success' : 
+                        (trade.exit_reason || trade.Outcome)?.toLowerCase().includes('loss') || 
+                        (trade.exit_reason || trade.Outcome)?.toLowerCase().includes('stop') ? 'error' : 'default'
                       }
                       size="sm"
                     >
-                      {trade.exit_reason?.replace('_', ' ').toUpperCase() || 'PENDING'}
+                      {(trade.exit_reason || trade.Outcome || 'PENDING')
+                        .replace('_', ' ').toUpperCase()}
                     </Badge>
                   </td>
                 </tr>

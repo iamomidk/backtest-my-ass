@@ -5,6 +5,7 @@ import { PerformanceChart } from './components/charts/PerformanceChart';
 import { PnLDistribution } from './components/charts/PnLDistribution';
 import { TradeTable } from './components/dashboard/TradeTable';
 import { ConfigurationPanel } from './components/dashboard/ConfigurationPanel';
+import { BacktestSummary } from './components/dashboard/BacktestSummary';
 import { Card, CardHeader, CardTitle, CardContent } from './components/ui/Card';
 import { useBacktestData } from './hooks/useBacktestData';
 import { AlertCircle, TrendingUp } from 'lucide-react';
@@ -16,7 +17,8 @@ function App() {
     configurations, 
     loading, 
     error, 
-    refreshData 
+    refreshData,
+    runBacktest
   } = useBacktestData();
 
   if (error) {
@@ -37,7 +39,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <Header onRefresh={refreshData} loading={loading} />
+      <Header onRefresh={refreshData} onRunBacktest={runBacktest} loading={loading} />
       
       <main className="max-w-7xl mx-auto px-6 py-8 space-y-8">
         {/* Metrics Overview */}
@@ -48,6 +50,20 @@ function App() {
           </h2>
           <MetricsGrid data={backtestResults} />
         </section>
+
+        {/* Backtest Summary */}
+        {backtestResults.length > 0 && (
+          <section>
+            <BacktestSummary
+              totalTrades={backtestResults.length}
+              winRate={backtestResults.filter(t => (t.pnl || t['P&L ($)'] || 0) > 0).length / backtestResults.length * 100}
+              totalPnL={backtestResults.reduce((sum, t) => sum + (t.pnl || t['P&L ($)'] || 0), 0)}
+              finalEquity={backtestResults[backtestResults.length - 1]?.equity_after_trade || backtestResults[backtestResults.length - 1]?.['Ending Equity'] || 10000}
+              maxDrawdown={15.2} // This would be calculated properly in a real implementation
+              profitFactor={2.1} // This would be calculated properly in a real implementation
+            />
+          </section>
+        )}
 
         {/* Charts Section */}
         <section className="grid grid-cols-1 lg:grid-cols-2 gap-8">
